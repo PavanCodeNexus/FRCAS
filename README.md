@@ -49,6 +49,7 @@
 Explore the technical specifications and architecture docs:
 
 * [**Product Requirements Document (PRD)**](docs/PRD.md) - Functional and technical specifications, acceptance criteria, and edge cases.
+* [**Production Deployment Guide**](docs/DEPLOYMENT.md) - Cloud (Render/Railway), Campus LAN, and Docker VPS setup.
 * [**System Architecture**](docs/ARCHITECTURE.md) - Pipeline dataflow, bipartite matching, model ONNX runtimes, and database schema.
 * [**UI/UX Design Specification**](docs/UI_DESIGN.md) - Design tokens, color calibration, dual-portal flows, and keyboard accessibility.
 * [**REST API Documentation**](docs/API.md) - Endpoint reference, request/response payloads, and authentication guides.
