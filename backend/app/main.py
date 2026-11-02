@@ -59,6 +59,12 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+@app.get("/health")
+@app.get("/ping")
+def health_check():
+    """Ultra-lightweight ping/health endpoint for UptimeRobot and Render keep-alive."""
+    return {"status": "healthy", "service": "facemark-frcas", "version": "1.0.0"}
+
 @app.get("/manifest.json")
 def serve_manifest():
     manifest_file = STATIC_DIR / "manifest.json"
