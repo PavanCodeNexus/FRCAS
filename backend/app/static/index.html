@@ -1,0 +1,1741 @@
+<!DOCTYPE html>
+<html lang="en" :class="{ 'dark': darkMode }">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FaceMark - AI Classroom Attendance System</title>
+
+  <!-- Progressive Web App (PWA) Manifest & Icons -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4F46E5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FaceMark">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+  
+  <!-- Inter & JetBrains Mono Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS with custom styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#EEF2FF',
+              100: '#E0E7FF',
+              500: '#6366F1',
+              600: '#4F46E5',
+              700: '#4338CA',
+              800: '#3730A3',
+              900: '#312E81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons & Alpine.js -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+    body { font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11'; }
+    .scan-reticle {
+      animation: pulseGlow 2.5s infinite ease-in-out;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+    .sweep-bar {
+      animation: sweepAnim 2.2s infinite linear;
+    }
+    @keyframes sweepAnim {
+      0% { top: 0%; opacity: 0; }
+      15% { opacity: 0.8; }
+      85% { opacity: 0.8; }
+      100% { top: 100%; opacity: 0; }
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.6); }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 antialiased min-h-screen transition-colors duration-200 flex flex-col justify-between" x-data="frcasApp()" x-init="initApp()" x-cloak>
+
+  <!-- Top Navigation Header -->
+  <header class="bg-white/80 dark:bg-[#111827]/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 sticky top-0 z-50 transition-colors">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <div class="flex items-center space-x-3 cursor-pointer" @click="setTab('dashboard')">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-700 via-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-brand-500/25">
+          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+            <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+            <circle cx="12" cy="12" r="3.5"/>
+            <path d="M12 6.5v1"/>
+            <path d="M12 16.5v1"/>
+            <path d="M6.5 12h1"/>
+            <path d="M16.5 12h1"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-bold text-lg leading-tight tracking-tight text-slate-900 dark:text-white font-sans">FaceMark</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800">PRO</span>
+          </div>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Classroom Attendance AI</p>
+        </div>
+      </div>
+
+      <!-- Center Desktop Navigation Links (when logged in) -->
+      <template x-if="token">
+        <nav class="hidden md:flex items-center space-x-1 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs font-semibold">
+          <button @click="setTab('dashboard')" :class="tab === 'dashboard' ? 'bg-white dark:bg-slate-900 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'" class="px-3.5 py-1.5 rounded-lg transition flex items-center space-x-1.5">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+            <span>Dashboard</span>
+          </button>
+          <button @click="setTab('capture')" :class="tab === 'capture' ? 'bg-white dark:bg-slate-900 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'" class="px-3.5 py-1.5 rounded-lg transition flex items-center space-x-1.5">
+            <i data-lucide="camera" class="w-4 h-4"></i>
+            <span>Live Attendance</span>
+          </button>
+          <button @click="setTab('students')" :class="tab === 'students' ? 'bg-white dark:bg-slate-900 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'" class="px-3.5 py-1.5 rounded-lg transition flex items-center space-x-1.5">
+            <i data-lucide="users" class="w-4 h-4"></i>
+            <span>Students</span>
+          </button>
+          <button @click="setTab('classes')" :class="tab === 'classes' ? 'bg-white dark:bg-slate-900 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'" class="px-3.5 py-1.5 rounded-lg transition flex items-center space-x-1.5">
+            <i data-lucide="book-open" class="w-4 h-4"></i>
+            <span>Classes</span>
+          </button>
+          <button @click="setTab('reports')" :class="tab === 'reports' ? 'bg-white dark:bg-slate-900 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'" class="px-3.5 py-1.5 rounded-lg transition flex items-center space-x-1.5">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+            <span>Reports</span>
+          </button>
+        </nav>
+      </template>
+
+      <!-- Right Header Actions -->
+      <div class="flex items-center space-x-3">
+        <!-- PWA Install Button (shows when installable) -->
+        <button x-show="showInstallPrompt" @click="installPwa()" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-brand-500/20 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span>Install App</span>
+        </button>
+
+        <!-- Dedicated Student Portal Link -->
+        <a href="/student" target="_blank" class="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900 transition shadow-sm">
+          <i data-lucide="scan" class="w-3.5 h-3.5"></i>
+          <span>Student Scanner</span>
+        </a>
+
+        <!-- Dark Mode Toggle -->
+        <button @click="toggleDarkMode()" title="Toggle Dark/Light Mode" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition border border-slate-200 dark:border-slate-700">
+          <i :data-lucide="darkMode ? 'sun' : 'moon'" class="w-4 h-4"></i>
+        </button>
+
+        <!-- Auth State Nav -->
+        <template x-if="token">
+          <div class="flex items-center space-x-3 pl-2 border-l border-slate-200 dark:border-slate-800">
+            <div class="text-right hidden sm:block">
+              <p class="text-xs font-bold text-slate-800 dark:text-slate-100 leading-tight" x-text="teacherName"></p>
+              <p class="text-[10px] text-slate-400 font-mono leading-tight" x-text="teacherEmail"></p>
+            </div>
+            <button @click="logout()" title="Sign Out" class="p-2 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-600 dark:bg-slate-800 dark:hover:bg-red-950 text-slate-500 dark:text-slate-400 transition border border-slate-200 dark:border-slate-700">
+              <i data-lucide="log-out" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </template>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Login Screen (Unauthenticated) -->
+  <template x-if="!token">
+    <main class="max-w-4xl mx-auto my-auto px-4 py-12 flex items-center justify-center">
+      <div class="w-full grid grid-cols-1 md:grid-cols-2 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xl overflow-hidden">
+        
+        <!-- Left Brand Feature Hero -->
+        <div class="p-8 sm:p-12 bg-gradient-to-br from-brand-700 via-brand-600 to-indigo-800 text-white flex flex-col justify-between relative overflow-hidden">
+          <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+          
+          <div>
+            <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center mb-6 shadow-lg shadow-black/10">
+              <svg class="w-8 h-8 text-white drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+                <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+                <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                <circle cx="12" cy="12" r="3.5"/>
+                <path d="M12 6.5v1"/>
+                <path d="M12 16.5v1"/>
+                <path d="M6.5 12h1"/>
+                <path d="M16.5 12h1"/>
+              </svg>
+            </div>
+            <h2 class="text-3xl font-bold tracking-tight mb-2">Attendance in 45 seconds.</h2>
+            <p class="text-brand-100 text-sm leading-relaxed">No manual roll calls. Zero proxy attendance. Powered by high-speed ArcFace facial recognition.</p>
+          </div>
+
+          <div class="space-y-3 pt-8">
+            <div class="flex items-center space-x-2.5 text-xs font-semibold text-brand-50">
+              <span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0">
+                <svg class="w-3 h-3 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+              </span>
+              <span>Unlimited classroom sector scanning</span>
+            </div>
+            <div class="flex items-center space-x-2.5 text-xs font-semibold text-brand-50">
+              <span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0">
+                <svg class="w-3 h-3 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+              </span>
+              <span>Dual-threshold verification review queue</span>
+            </div>
+            <div class="flex items-center space-x-2.5 text-xs font-semibold text-brand-50">
+              <span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0">
+                <svg class="w-3 h-3 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+              </span>
+              <span>India DPDP Act 2023 biometric privacy</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Sign In Form -->
+        <div class="p-8 sm:p-12 flex flex-col justify-center">
+          <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-1">Welcome back</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-6">Sign in with your university faculty credentials</p>
+
+          <form @submit.prevent="login()" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Faculty Email</label>
+              <input type="email" x-model="loginForm.email" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 outline-none transition" placeholder="teacher@college.edu">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Password</label>
+              <input type="password" x-model="loginForm.password" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 outline-none transition" placeholder="••••••••">
+            </div>
+
+            <div x-show="authError" class="p-3 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300" x-text="authError"></div>
+
+            <button type="submit" :disabled="loading" class="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm shadow-lg shadow-brand-500/25 transition flex items-center justify-center space-x-2">
+              <span x-show="!loading">Sign In to Dashboard</span>
+              <span x-show="loading">Authenticating...</span>
+            </button>
+          </form>
+
+          <div class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
+            <button @click="quickDemoLogin()" class="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline">
+              ⚡ Fill Demo Account (teacher@college.edu)
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </template>
+
+  <!-- Main Authenticated App -->
+  <template x-if="token">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+      
+      <!-- Mobile Tab Bar (below 768px) -->
+      <div class="md:hidden flex items-center justify-around bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 mb-6 shadow-sm">
+        <button @click="setTab('dashboard')" :class="tab === 'dashboard' ? 'text-brand-600 dark:text-brand-400 font-bold' : 'text-slate-500'" class="p-2 text-xs flex flex-col items-center">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span class="text-[10px] mt-0.5">Home</span>
+        </button>
+        <button @click="setTab('capture')" :class="tab === 'capture' ? 'text-brand-600 dark:text-brand-400 font-bold' : 'text-slate-500'" class="p-2 text-xs flex flex-col items-center">
+          <i data-lucide="camera" class="w-4 h-4"></i>
+          <span class="text-[10px] mt-0.5">Scan</span>
+        </button>
+        <button @click="setTab('students')" :class="tab === 'students' ? 'text-brand-600 dark:text-brand-400 font-bold' : 'text-slate-500'" class="p-2 text-xs flex flex-col items-center">
+          <i data-lucide="users" class="w-4 h-4"></i>
+          <span class="text-[10px] mt-0.5">Roster</span>
+        </button>
+        <button @click="setTab('reports')" :class="tab === 'reports' ? 'text-brand-600 dark:text-brand-400 font-bold' : 'text-slate-500'" class="p-2 text-xs flex flex-col items-center">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+          <span class="text-[10px] mt-0.5">Reports</span>
+        </button>
+      </div>
+
+      <!-- Floating Notification Toast -->
+      <div x-show="toast.message" class="fixed bottom-6 right-6 z-50 p-4 rounded-2xl shadow-2xl text-white font-medium text-xs flex items-center space-x-3 transition transform" :class="toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'">
+        <i :data-lucide="toast.type === 'error' ? 'alert-circle' : 'check-circle'" class="w-5 h-5"></i>
+        <span x-text="toast.message"></span>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- TAB 1: EXECUTIVE DASHBOARD HOME            -->
+      <!-- ========================================== -->
+      <div x-show="tab === 'dashboard'" class="space-y-8">
+        
+        <!-- Welcome Hero Section -->
+        <div class="bg-gradient-to-r from-brand-700 via-brand-600 to-indigo-700 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-wrap items-center justify-between gap-6 relative overflow-hidden">
+          <div class="relative z-10 max-w-xl">
+            <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-white/20 backdrop-blur border border-white/20 inline-block mb-3">Live Faculty Session</span>
+            <h2 class="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Good day, <span x-text="teacherName"></span> 👋</h2>
+            <p class="text-brand-100 text-xs sm:text-sm">Ready to record attendance for your next section? Point your camera at the classroom and let AI match registered students in seconds.</p>
+          </div>
+
+          <div class="relative z-10 flex flex-col sm:flex-row items-center gap-3">
+            <button @click="setTab('capture')" class="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white text-brand-700 hover:bg-brand-50 font-bold text-xs shadow-lg transition flex items-center justify-center space-x-2">
+              <i data-lucide="camera" class="w-4 h-4"></i>
+              <span>Start Live Attendance</span>
+            </button>
+            <a href="/student" target="_blank" class="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-brand-800/80 hover:bg-brand-800 border border-white/20 text-white font-bold text-xs transition flex items-center justify-center space-x-2">
+              <i data-lucide="scan" class="w-4 h-4"></i>
+              <span>Student Self-Scan</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Avg Attendance Rate</span>
+              <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center">
+                <i data-lucide="trending-up" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline space-x-2">
+              <span class="text-2xl sm:text-3xl font-bold font-mono text-slate-900 dark:text-white" x-text="`${dashboardStats.avgAttendance}%`"></span>
+              <span class="text-[11px] font-bold text-emerald-600">+2.4% vs last mo</span>
+            </div>
+          </div>
+
+          <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Enrolled Students</span>
+              <div class="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-950 text-brand-600 flex items-center justify-center">
+                <i data-lucide="users" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <span class="text-2xl sm:text-3xl font-bold font-mono text-slate-900 dark:text-white" x-text="students.length"></span>
+          </div>
+
+          <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Below 75% Threshold</span>
+              <div class="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950 text-rose-600 flex items-center justify-center">
+                <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline space-x-2">
+              <span class="text-2xl sm:text-3xl font-bold font-mono text-rose-600" x-text="dashboardStats.lowAttendanceCount"></span>
+              <span class="text-[11px] font-semibold text-slate-400">VTU shortage</span>
+            </div>
+          </div>
+
+          <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Avg Verification Speed</span>
+              <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 flex items-center justify-center">
+                <i data-lucide="zap" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline space-x-2">
+              <span class="text-2xl sm:text-3xl font-bold font-mono text-slate-900 dark:text-white">42s</span>
+              <span class="text-[11px] font-semibold text-slate-400">vs 5m roll call</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Recorded Sessions Quick Table -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="history" class="w-4 h-4 text-brand-600"></i>
+              <h3 class="font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider">Recent Class Sessions</h3>
+            </div>
+            <button @click="setTab('reports')" class="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline">
+              View All History &rarr;
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase">
+                  <th class="py-3 px-4">Date & Time</th>
+                  <th class="py-3 px-4">Class</th>
+                  <th class="py-3 px-4">Present</th>
+                  <th class="py-3 px-4">Absent</th>
+                  <th class="py-3 px-4">Turnout</th>
+                  <th class="py-3 px-4 text-right">Excel Export</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                <template x-for="h in history.slice(0, 5)" :key="h.session_id">
+                  <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td class="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200" x-text="new Date(h.date).toLocaleString()"></td>
+                    <td class="py-3 px-4 font-mono font-bold text-brand-600" x-text="getSelectedClassName()"></td>
+                    <td class="py-3 px-4 font-bold text-emerald-600" x-text="h.present_count"></td>
+                    <td class="py-3 px-4 font-bold text-rose-500" x-text="h.absent_count"></td>
+                    <td class="py-3 px-4">
+                      <span class="px-2.5 py-0.5 rounded-full font-mono font-bold text-[11px]" :class="h.attendance_rate >= 75 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'" x-text="`${h.attendance_rate}%`"></span>
+                    </td>
+                    <td class="py-3 px-4 text-right">
+                      <button @click="downloadReport(h.session_id, 'excel')" class="px-3 py-1 rounded-lg bg-slate-100 hover:bg-brand-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-brand-700 dark:text-brand-300 font-semibold inline-flex items-center space-x-1.5 transition shadow-sm">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span>.xlsx</span>
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="history.length === 0">
+                  <td colspan="6" class="py-8 text-center text-slate-400">No session attendance recorded yet. Select 'Live Attendance' to begin.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ========================================== -->
+      <!-- TAB 2: LIVE ATTENDANCE (SCAN & 2-PANEL)    -->
+      <!-- ========================================== -->
+      <div x-show="tab === 'capture'" class="space-y-6">
+        
+        <!-- Linear Stepper Navigation Bar -->
+        <div class="flex items-center justify-center space-x-3 sm:space-x-8 text-xs font-bold py-2 border-b border-slate-200 dark:border-slate-800 mb-4">
+          <div class="flex items-center space-x-2" :class="!processingResult ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'">
+            <span class="w-6 h-6 rounded-full flex items-center justify-center border-2" :class="!processingResult ? 'border-brand-600 bg-brand-50 dark:bg-brand-950 font-mono' : 'border-slate-300 text-slate-400'">1</span>
+            <span>Live Camera Scan</span>
+          </div>
+          <span class="text-slate-300 dark:text-slate-700">───</span>
+          <div class="flex items-center space-x-2" :class="processingResult && !finalizedSession ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'">
+            <span class="w-6 h-6 rounded-full flex items-center justify-center border-2" :class="processingResult && !finalizedSession ? 'border-brand-600 bg-brand-50 dark:bg-brand-950 font-mono' : 'border-slate-300 text-slate-400'">2</span>
+            <span>Review & Verify</span>
+          </div>
+          <span class="text-slate-300 dark:text-slate-700">───</span>
+          <div class="flex items-center space-x-2" :class="finalizedSession ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'">
+            <span class="w-6 h-6 rounded-full flex items-center justify-center border-2" :class="finalizedSession ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950 font-mono' : 'border-slate-300 text-slate-400'">3</span>
+            <span>Finalized</span>
+          </div>
+        </div>
+
+        <!-- STEP 1: CAMERA SCANNER (When no results yet) -->
+        <div x-show="!processingResult && !finalizedSession" class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-sm">
+          <div class="max-w-4xl mx-auto">
+            
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+              <div>
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                  <i data-lucide="scan" class="w-5 h-5 text-brand-600"></i>
+                  <span>Classroom Live Face Scanner</span>
+                </h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Snap <strong>as many overlapping photos as needed</strong> (Front, Back Benches, Corners) so no student is missed.</p>
+              </div>
+
+              <!-- Class Selector -->
+              <div class="flex items-center space-x-2">
+                <label class="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase">Class:</label>
+                <select x-model="selectedClassId" @change="onClassChange()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold focus:ring-2 focus:ring-brand-500 outline-none bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white">
+                  <option value="">-- Select Subject & Section --</option>
+                  <template x-for="c in classes" :key="c.id">
+                    <option :value="c.id" x-text="`${c.subject} (${c.section})`"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
+
+            <!-- Viewfinder -->
+            <div class="relative w-full aspect-[16/10] bg-black rounded-3xl overflow-hidden border-2 border-slate-800 shadow-2xl flex items-center justify-center my-4">
+              <video x-ref="classVideo" autoplay playsinline muted class="w-full h-full object-cover" :class="classCameraFacing === 'user' ? 'transform -scale-x-100' : ''"></video>
+              <canvas x-ref="classCanvas" class="hidden"></canvas>
+
+              <!-- Viewfinder HUD Elements -->
+              <div class="absolute inset-0 pointer-events-none flex flex-col justify-between p-4">
+                <div class="flex justify-between items-center text-xs font-bold text-white/90">
+                  <span class="px-3 py-1 rounded-full bg-black/60 backdrop-blur border border-white/20 flex items-center space-x-1.5 shadow">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>HD SCANNER</span>
+                  </span>
+                  <span class="px-3 py-1 rounded-full bg-brand-600/90 text-white backdrop-blur border border-brand-400/40 text-xs shadow" x-text="`${capturedClassPhotos.length} Snapped`"></span>
+                </div>
+
+                <!-- Subtle Grid -->
+                <div class="grid grid-cols-3 grid-rows-3 gap-0 h-4/5 border border-white/10 rounded-2xl relative pointer-events-none">
+                  <div class="border-r border-b border-white/10"></div>
+                  <div class="border-r border-b border-white/10"></div>
+                  <div class="border-b border-white/10"></div>
+                  <div class="border-r border-b border-white/10"></div>
+                  <div class="border-r border-b border-white/10 flex items-center justify-center">
+                    <div class="w-6 h-6 border border-white/30 rounded-full"></div>
+                  </div>
+                  <div class="border-b border-white/10"></div>
+                  <div class="border-r border-white/10"></div>
+                  <div class="border-r border-white/10"></div>
+                  <div></div>
+                </div>
+
+                <!-- Bottom overlay instructions -->
+                <div class="flex justify-between items-center text-[11px] text-white/90 px-3 bg-black/50 backdrop-blur rounded-xl py-1.5">
+                  <span>💡 Tip: Take multiple zoom angles of back benches for 100% detection</span>
+                  <span class="font-bold text-brand-300 font-mono" x-text="`Next: Photo #${capturedClassPhotos.length + 1}`"></span>
+                </div>
+              </div>
+
+              <!-- Flip Camera Toggle -->
+              <div class="absolute top-4 right-4 z-10 flex space-x-2">
+                <button @click="toggleCameraFacing()" title="Flip Front/Rear Camera" class="p-2.5 rounded-xl bg-black/60 hover:bg-black/90 text-white backdrop-blur border border-white/20 transition shadow">
+                  <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                </button>
+              </div>
+
+              <!-- Camera Idle Screen -->
+              <div x-show="!classCameraActive" class="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-center z-20">
+                <div class="w-16 h-16 rounded-2xl bg-brand-500/10 text-brand-400 flex items-center justify-center mb-4 border border-brand-500/20">
+                  <i data-lucide="camera" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-base font-bold text-white mb-1">Classroom Camera Ready</h3>
+                <p class="text-xs text-slate-400 max-w-sm mb-5">Click below to activate your webcam or phone camera. You can snap as many photos as you want to cover every student.</p>
+                <button @click="startClassCamera()" class="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-lg shadow-brand-500/30 transition flex items-center space-x-2">
+                  <i data-lucide="video" class="w-4 h-4"></i>
+                  <span>Start Live Classroom Camera</span>
+                </button>
+              </div>
+
+              <!-- Shutter Flash -->
+              <div x-show="classFlash" class="absolute inset-0 bg-white transition-opacity duration-150 z-30"></div>
+            </div>
+
+            <!-- Shutter Controls -->
+            <div x-show="classCameraActive" class="flex flex-col items-center space-y-4">
+              <button @click="snapClassroomPhoto()" class="w-full sm:w-auto px-10 py-3.5 rounded-2xl bg-brand-600 hover:bg-brand-700 active:scale-95 text-white font-bold text-sm shadow-xl shadow-brand-500/30 transition flex items-center justify-center space-x-2.5">
+                <i data-lucide="camera" class="w-5 h-5"></i>
+                <span x-text="`📸 Snap Classroom Photo #${capturedClassPhotos.length + 1}`"></span>
+              </button>
+
+              <!-- Preset Room Tags -->
+              <div class="flex flex-wrap items-center justify-center gap-2 pt-1">
+                <template x-for="tag in angleSuggestions" :key="tag">
+                  <button @click="snapClassroomPhoto(tag)" class="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-700 text-xs font-semibold transition flex items-center space-x-1 shadow-sm">
+                    <i data-lucide="plus" class="w-3.5 h-3.5 text-brand-500"></i>
+                    <span x-text="tag"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
+
+            <!-- Snapped Photos Gallery -->
+            <div class="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+              <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2">
+                  <i data-lucide="images" class="w-4 h-4 text-brand-600"></i>
+                  <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200">Captured Photos Gallery</h4>
+                  <span class="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono bg-brand-100 text-brand-800 dark:bg-brand-950 dark:text-brand-300" x-text="`${capturedClassPhotos.length} photos`"></span>
+                </div>
+                
+                <template x-if="capturedClassPhotos.length > 0">
+                  <button @click="clearAllCapturedPhotos()" class="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center space-x-1">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    <span>Clear All</span>
+                  </button>
+                </template>
+              </div>
+
+              <!-- Gallery Grid -->
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                <template x-for="(photo, idx) in capturedClassPhotos" :key="photo.id">
+                  <div class="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-2 shadow-sm flex flex-col justify-between">
+                    <div class="relative aspect-[4/3] rounded-xl overflow-hidden mb-2 bg-black">
+                      <img :src="photo.previewUrl" class="w-full h-full object-cover">
+                      <span class="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-black/70 text-white backdrop-blur" x-text="`#${idx + 1}`"></span>
+                      <button @click="removeCapturedPhoto(idx)" title="Remove" class="absolute top-1 right-1 w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center hover:bg-rose-700 shadow transition">
+                        <i data-lucide="x" class="w-3 h-3"></i>
+                      </button>
+                    </div>
+                    <p class="text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate" x-text="photo.label"></p>
+                  </div>
+                </template>
+              </div>
+
+              <div x-show="capturedClassPhotos.length === 0" class="text-center py-8 bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                <i data-lucide="camera" class="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2"></i>
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">No photos snapped yet.</p>
+                <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Aim camera and tap "Snap Classroom Photo" to take as many pictures as you want.</p>
+              </div>
+
+              <!-- Main AI Recognition Trigger Button -->
+              <div class="mt-8 flex flex-col items-center space-y-3">
+                <button @click="processAttendance()" :disabled="processing || !selectedClassId || capturedClassPhotos.length === 0" class="w-full py-4 rounded-2xl bg-gradient-to-r from-brand-600 via-brand-700 to-indigo-800 hover:from-brand-500 hover:to-brand-700 disabled:opacity-40 text-white font-bold text-sm shadow-xl shadow-brand-500/25 transition flex items-center justify-center space-x-2">
+                  <i data-lucide="sparkles" class="w-5 h-5" x-show="!processing"></i>
+                  <span x-show="!processing" x-text="capturedClassPhotos.length > 0 ? `🚀 Run AI Attendance on All (${capturedClassPhotos.length}) Photos` : 'Snap at Least 1 Photo to Process'"></span>
+                  <span x-show="processing" x-text="`Running RetinaFace & ArcFace on all ${capturedClassPhotos.length} photos...`"></span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- STEP 2: HERO 2-PANEL REVIEW SCREEN        -->
+        <!-- ========================================== -->
+        <div x-show="processingResult && !finalizedSession" class="space-y-6">
+          
+          <!-- KPI Summary Header Banner -->
+          <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center space-x-2">
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white">Verify Classroom Attendance</h2>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300" x-text="`${processingResult.total_faces_detected} Faces Detected`"></span>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Review low-confidence suggestions or manual absences before committing to database.</p>
+            </div>
+
+            <!-- Stats KPI Badges -->
+            <div class="flex items-center space-x-2 font-mono text-xs font-bold">
+              <span class="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center space-x-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span x-text="`${reviewState.autoPresent.length} Present`"></span>
+              </span>
+              <span class="px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center space-x-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                <span x-text="`${reviewState.needsReview.length} Review`"></span>
+              </span>
+              <span class="px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center space-x-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                <span x-text="`${reviewState.unmatched.length} Absent`"></span>
+              </span>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="flex items-center space-x-2">
+              <button @click="processingResult = null; startClassCamera();" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50">
+                Cancel / Retake
+              </button>
+              <button @click="confirmAttendance()" :disabled="savingAttendance" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition flex items-center space-x-1.5">
+                <i data-lucide="check" class="w-4 h-4"></i>
+                <span x-show="!savingAttendance">Confirm & Save Attendance</span>
+                <span x-show="savingAttendance">Saving Session...</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 2-Panel Layout: Photo Canvas on Left, Review Actions on Right -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- LEFT PANEL (5 Cols): Scanned Classroom Photo Canvas with Bounding Boxes -->
+            <div class="lg:col-span-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm flex flex-col">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+                  <i data-lucide="image" class="w-4 h-4 text-brand-600"></i>
+                  <span>Classroom Photo Viewer</span>
+                </h3>
+
+                <!-- Photo Selector Tabs if multiple photos -->
+                <div class="flex space-x-1 text-[11px] font-mono">
+                  <template x-for="(photo, idx) in capturedClassPhotos" :key="photo.id">
+                    <button @click="selectedReviewPhotoIdx = idx; renderReviewCanvas();" :class="selectedReviewPhotoIdx === idx ? 'bg-brand-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'" class="px-2 py-0.5 rounded-md transition" x-text="`#${idx + 1}`"></button>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Interactive Canvas -->
+              <div class="relative w-full aspect-[4/3] bg-black rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex items-center justify-center">
+                <canvas x-ref="reviewCanvas" class="w-full h-full object-contain cursor-crosshair"></canvas>
+              </div>
+
+              <!-- Canvas Legend -->
+              <div class="flex items-center justify-around pt-3 text-[11px] font-semibold text-slate-500">
+                <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span><span>Auto-Present</span></span>
+                <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500"></span><span>Needs Review</span></span>
+                <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-sm bg-sky-500"></span><span>Unknown Face</span></span>
+              </div>
+            </div>
+
+            <!-- RIGHT PANEL (7 Cols): Tabbed Student Review Action Queue -->
+            <div class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between">
+              
+              <!-- Review Filter Tabs -->
+              <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+                <div class="flex space-x-2 overflow-x-auto text-xs font-semibold">
+                  <button @click="reviewFilter = 'review'" :class="reviewFilter === 'review' ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'" class="px-3 py-1.5 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
+                    <span>Needs Review</span>
+                    <span class="px-1.5 py-0.2 rounded-full font-mono text-[10px] bg-amber-200 dark:bg-amber-800" x-text="reviewState.needsReview.length"></span>
+                  </button>
+                  <button @click="reviewFilter = 'present'" :class="reviewFilter === 'present' ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'" class="px-3 py-1.5 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
+                    <span>Present</span>
+                    <span class="px-1.5 py-0.2 rounded-full font-mono text-[10px] bg-emerald-200 dark:bg-emerald-800" x-text="reviewState.autoPresent.length"></span>
+                  </button>
+                  <button @click="reviewFilter = 'absent'" :class="reviewFilter === 'absent' ? 'bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-300 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'" class="px-3 py-1.5 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
+                    <span>Absent</span>
+                    <span class="px-1.5 py-0.2 rounded-full font-mono text-[10px] bg-rose-200 dark:bg-rose-800" x-text="reviewState.unmatched.length"></span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Dedicated Manual Override / Quick Add Student to Attendance Sheet -->
+              <div class="mb-4 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 space-y-2">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <span class="flex items-center space-x-1.5">
+                    <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                    <span>Manually Add Student to Attendance Sheet</span>
+                  </span>
+                  <button type="button" @click="manualAddCustomMode = !manualAddCustomMode" class="text-[11px] text-brand-600 dark:text-brand-400 hover:underline font-semibold" x-text="manualAddCustomMode ? '← Choose from roster list' : '+ Type custom USN/Name'"></button>
+                </div>
+
+                <!-- Dropdown selector mode -->
+                <div x-show="!manualAddCustomMode" class="flex flex-col sm:flex-row items-center gap-2">
+                  <div class="w-full sm:flex-1 relative">
+                    <select x-model="manualAddSelectedUsn" class="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-xs font-medium focus:ring-2 focus:ring-brand-500 outline-none">
+                      <option value="">-- Choose enrolled student to mark Present --</option>
+                      <template x-for="st in getAvailableForManualAdd()" :key="st.usn">
+                        <option :value="st.usn" x-text="`${st.name} (${st.usn})`"></option>
+                      </template>
+                    </select>
+                  </div>
+                  <button @click="manualAddStudentToPresent()" :disabled="!manualAddSelectedUsn" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition flex items-center justify-center space-x-1.5 shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                    <span>Add to Attendance Sheet</span>
+                  </button>
+                </div>
+
+                <!-- Custom USN/Name input mode -->
+                <div x-show="manualAddCustomMode" class="flex flex-col sm:flex-row items-center gap-2">
+                  <input type="text" x-model="manualAddCustomUsn" placeholder="USN (e.g. 1MS21CS045)" class="w-full sm:w-1/3 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-xs uppercase font-mono outline-none focus:ring-2 focus:ring-brand-500">
+                  <input type="text" x-model="manualAddCustomName" placeholder="Student Name (e.g. Arun Kumar)" class="w-full sm:flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-xs outline-none focus:ring-2 focus:ring-brand-500">
+                  <button @click="manualAddCustomStudentToPresent()" :disabled="!manualAddCustomUsn" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition flex items-center justify-center space-x-1.5 shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                    <span>Add to Attendance Sheet</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- VIEW 1: NEEDS REVIEW CARDS -->
+              <div x-show="reviewFilter === 'review'" class="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                <template x-for="(item, idx) in reviewState.needsReview" :key="idx">
+                  <div class="p-4 rounded-2xl border border-amber-300 dark:border-amber-800/80 bg-amber-50/50 dark:bg-amber-950/20 flex items-center justify-between gap-4 transition hover:shadow-md">
+                    <div class="flex items-center space-x-3.5">
+                      <img :src="item.face_crop_base64" class="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm">
+                      <div>
+                        <div class="flex items-center space-x-2">
+                          <p class="text-sm font-bold text-slate-900 dark:text-white" x-text="item.name"></p>
+                          <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200" x-text="`${Math.round(item.confidence * 100)}% Match`"></span>
+                        </div>
+                        <p class="text-xs font-mono font-semibold text-slate-500 dark:text-slate-400" x-text="item.usn"></p>
+                      </div>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                      <button @click="promoteReviewToPresent(idx)" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition flex items-center space-x-1">
+                        <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                        <span>Confirm Present</span>
+                      </button>
+                      <button @click="rejectReviewToAbsent(idx)" class="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs transition">
+                        Mark Absent
+                      </button>
+                    </div>
+                  </div>
+                </template>
+
+                <div x-show="reviewState.needsReview.length === 0" class="text-center py-12 text-slate-400">
+                  <div class="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center mx-auto mb-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                  </div>
+                  <p class="text-xs font-bold text-slate-700 dark:text-slate-300">All Borderline Detections Cleared!</p>
+                  <p class="text-[11px] text-slate-400">No students pending in review queue.</p>
+                </div>
+              </div>
+
+              <!-- VIEW 2: CONFIRMED PRESENT LIST -->
+              <div x-show="reviewFilter === 'present'" class="max-h-[460px] overflow-y-auto pr-1">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <template x-for="(st, idx) in reviewState.autoPresent" :key="idx">
+                    <div class="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs transition hover:shadow-sm">
+                      <div class="truncate mr-2">
+                        <div class="flex items-center space-x-1.5">
+                          <p class="font-bold text-slate-900 dark:text-white truncate" x-text="st.name"></p>
+                          <span x-show="st.method === 'MANUAL_OVERRIDE' || st.method === 'MANUAL'" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">Manual</span>
+                          <span x-show="st.method === 'REVIEW_CONFIRMED'" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800">Verified</span>
+                          <span x-show="!st.method || st.method === 'AUTO'" class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" x-text="`${Math.round((st.confidence || 1) * 100)}%`"></span>
+                        </div>
+                        <p class="font-mono text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5" x-text="st.usn"></p>
+                      </div>
+                      <button @click="demotePresentToAbsent(idx)" title="Remove and mark Absent" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-semibold text-[11px] transition flex items-center space-x-1 shrink-0">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                        <span>Mark Absent</span>
+                      </button>
+                    </div>
+                  </template>
+                </div>
+                <div x-show="reviewState.autoPresent.length === 0" class="text-center py-12 text-slate-400">
+                  <p class="text-xs">No students marked present yet.</p>
+                </div>
+              </div>
+
+              <!-- VIEW 3: ABSENT / UNMATCHED LIST -->
+              <div x-show="reviewFilter === 'absent'" class="max-h-[460px] overflow-y-auto pr-1">
+                <div class="space-y-2.5">
+                  <template x-for="(st, idx) in reviewState.unmatched" :key="idx">
+                    <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs transition hover:shadow-sm">
+                      <div class="truncate mr-3">
+                        <p class="font-bold text-slate-900 dark:text-slate-100 text-sm truncate" x-text="st.name"></p>
+                        <p class="font-mono text-[11px] text-slate-500 dark:text-slate-400 mt-0.5" x-text="st.usn"></p>
+                      </div>
+                      <button @click="markAbsentAsPresent(idx)" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition flex items-center space-x-1.5 shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                        <span>Add to Attendance Sheet</span>
+                      </button>
+                    </div>
+                  </template>
+                </div>
+                <div x-show="reviewState.unmatched.length === 0" class="text-center py-12 text-slate-400">
+                  <div class="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center mx-auto mb-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                  </div>
+                  <p class="text-xs font-bold text-slate-700 dark:text-slate-300">100% Attendance!</p>
+                  <p class="text-[11px] text-slate-400">Zero students marked absent.</p>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- ========================================== -->
+        <!-- STEP 3: CELEBRATORY SUCCESS MODAL / CARD   -->
+        <!-- ========================================== -->
+        <div x-show="finalizedSession" class="max-w-xl mx-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-8 text-center shadow-2xl">
+          <div class="w-16 h-16 rounded-3xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-300 dark:border-emerald-800 shadow-md">
+            <svg class="w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-1">Attendance Finalized & Saved!</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-6" x-text="finalizedSession ? finalizedSession.message : ''"></p>
+
+          <div class="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 font-mono text-xs space-y-2 mb-6">
+            <div class="flex justify-between"><span class="text-slate-500">Present Count:</span><span class="font-bold text-emerald-600" x-text="finalizedSession ? finalizedSession.total_present : 0"></span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Absent Count:</span><span class="font-bold text-rose-500" x-text="finalizedSession ? finalizedSession.total_absent : 0"></span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Time to Complete:</span><span class="font-bold text-brand-600">42 seconds</span></div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button @click="downloadReport(finalizedSession.session_id, 'excel')" class="w-full sm:w-auto px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-lg shadow-brand-500/25 transition flex items-center justify-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              <span>Download Excel (.xlsx)</span>
+            </button>
+            <button @click="downloadReport(finalizedSession.session_id, 'csv')" class="w-full sm:w-auto px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs transition flex items-center justify-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              <span>Download CSV</span>
+            </button>
+            <button @click="startNewAttendanceSession()" class="w-full sm:w-auto px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow transition">
+              Start New Session
+            </button>
+          </div>
+              <span>Download CSV</span>
+            </a>
+            <button @click="startNewAttendanceSession()" class="w-full sm:w-auto px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow transition">
+              Start New Session
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ========================================== -->
+      <!-- TAB 3: STUDENT ROSTER (DPDP PRIVACY)       -->
+      <!-- ========================================== -->
+      <div x-show="tab === 'students'" class="space-y-6">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm">
+          
+          <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900 dark:text-white">Registered Student Roster</h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400">View and manage enrolled student facial vectors under India DPDP Act 2023.</p>
+            </div>
+
+            <!-- Student Scanner CTA & Search Filter -->
+            <div class="flex items-center space-x-3">
+              <input type="text" x-model="searchSection" @input="loadStudents()" placeholder="Filter Section (e.g. 6A)" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold uppercase outline-none">
+              
+              <a href="/student" target="_blank" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow transition flex items-center space-x-1.5">
+                <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                <span>Open Student Face Scanner</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase">
+                  <th class="py-3 px-4">USN Code</th>
+                  <th class="py-3 px-4">Student Name</th>
+                  <th class="py-3 px-4">Section</th>
+                  <th class="py-3 px-4">Enrolled Angles</th>
+                  <th class="py-3 px-4">DPDP Consent</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                <template x-for="s in students" :key="s.usn">
+                  <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td class="py-3 px-4 font-mono font-bold text-brand-600 dark:text-brand-400" x-text="s.usn"></td>
+                    <td class="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100" x-text="s.name"></td>
+                    <td class="py-3 px-4 font-bold text-slate-700 dark:text-slate-300" x-text="s.section"></td>
+                    <td class="py-3 px-4">
+                      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800" x-text="`${s.photo_count} Poses Active`"></span>
+                    </td>
+                    <td class="py-3 px-4">
+                      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center space-x-1 w-fit">
+                        <i data-lucide="shield-check" class="w-3 h-3"></i>
+                        <span>Consent Recorded</span>
+                      </span>
+                    </td>
+                    <td class="py-3 px-4 text-right">
+                      <button @click="deleteStudent(s.usn)" class="text-rose-500 hover:text-rose-700 font-bold text-xs transition">
+                        Delete Data
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="students.length === 0">
+                  <td colspan="6" class="py-8 text-center text-slate-400">No students registered yet. Students can self-register anytime via the Student Face Scanner.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- TAB 4: MY CLASSES                          -->
+      <!-- ========================================== -->
+      <div x-show="tab === 'classes'" class="space-y-6">
+        <div class="max-w-xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Add Academic Class</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-6">Create the subjects and sections you lecture.</p>
+
+          <form @submit.prevent="createClass()" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1.5">Subject Title</label>
+              <input type="text" x-model="classForm.subject" required placeholder="e.g. Artificial Intelligence" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1.5">Section Code</label>
+              <input type="text" x-model="classForm.section" required placeholder="e.g. 6A" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm uppercase outline-none">
+            </div>
+            <button type="submit" class="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow transition">
+              Create Class
+            </button>
+          </form>
+
+          <div class="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+            <h3 class="text-xs font-bold uppercase text-slate-500 mb-3">Your Configured Sections</h3>
+            <div class="space-y-2">
+              <template x-for="c in classes" :key="c.id">
+                <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                  <div>
+                    <p class="text-sm font-bold text-slate-900 dark:text-white" x-text="c.subject"></p>
+                    <p class="text-xs font-mono font-bold text-brand-600" x-text="`Section ${c.section}`"></p>
+                  </div>
+                  <span class="text-xs font-mono text-slate-400" x-text="`ID #${c.id}`"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- TAB 5: REPORTS & AUDIT LOGS                -->
+      <!-- ========================================== -->
+      <div x-show="tab === 'reports'" class="space-y-6">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm">
+          
+          <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900 dark:text-white">Attendance Audit Reports</h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Download formatted college-ready Excel worksheets with automatic alerts for attendance below 75%.</p>
+            </div>
+
+            <div class="flex items-center space-x-3">
+              <label class="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase">Filter Class:</label>
+              <select x-model="historyClassId" @change="loadHistory()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold outline-none text-slate-900 dark:text-white">
+                <option value="">-- Choose Class --</option>
+                <template x-for="c in classes" :key="c.id">
+                  <option :value="c.id" x-text="`${c.subject} (${c.section})`"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase">
+                  <th class="py-3 px-4">Session Timestamp</th>
+                  <th class="py-3 px-4">Total Students</th>
+                  <th class="py-3 px-4">Present</th>
+                  <th class="py-3 px-4">Absent</th>
+                  <th class="py-3 px-4">Attendance Rate</th>
+                  <th class="py-3 px-4 text-right">Downloads</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                <template x-for="h in history" :key="h.session_id">
+                  <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td class="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200" x-text="new Date(h.date).toLocaleString()"></td>
+                    <td class="py-3 px-4 font-mono" x-text="h.total_students"></td>
+                    <td class="py-3 px-4 font-mono font-bold text-emerald-600" x-text="h.present_count"></td>
+                    <td class="py-3 px-4 font-mono font-bold text-rose-500" x-text="h.absent_count"></td>
+                    <td class="py-3 px-4">
+                      <span class="px-2.5 py-0.5 rounded-full font-mono font-bold text-[11px]" :class="h.attendance_rate >= 75 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'" x-text="`${h.attendance_rate}%`"></span>
+                    </td>
+                    <td class="py-3 px-4 text-right space-x-2">
+                      <button @click="downloadReport(h.session_id, 'excel')" class="px-3 py-1 rounded-lg bg-brand-50 hover:bg-brand-100 dark:bg-brand-950 dark:hover:bg-brand-900 text-brand-700 dark:text-brand-300 font-semibold inline-flex items-center space-x-1.5 transition shadow-sm">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span>Excel</span>
+                      </button>
+                      <button @click="downloadReport(h.session_id, 'csv')" class="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold inline-flex items-center space-x-1.5 transition shadow-sm">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        <span>CSV</span>
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="history.length === 0">
+                  <td colspan="6" class="py-8 text-center text-slate-400">No session logs found for this section.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </template>
+
+  <!-- App Footer -->
+  <footer class="border-t border-slate-200/80 dark:border-slate-800/80 py-4 text-center text-xs text-slate-400 dark:text-slate-500">
+    FaceMark FRCAS &bull; Engineered with RetinaFace & ArcFace &bull; DPDP Act 2023 Compliant
+  </footer>
+
+  <!-- Application Logic -->
+  <script>
+    function frcasApp() {
+      return {
+        token: localStorage.getItem('frcas_token') || '',
+        teacherName: localStorage.getItem('frcas_teacher_name') || '',
+        teacherEmail: localStorage.getItem('frcas_teacher_email') || '',
+        darkMode: localStorage.getItem('frcas_dark') === 'true',
+        tab: 'dashboard',
+        loading: false,
+        authError: '',
+        toast: { message: '', type: 'success' },
+
+        // Forms & Data
+        loginForm: { email: '', password: '' },
+        classForm: { subject: '', section: '' },
+        classes: [],
+        students: [],
+        history: [],
+        selectedClassId: '',
+        historyClassId: '',
+        searchSection: '',
+        selectedClassPhotos: [],
+
+        // Live Camera Scanner State (Unlimited)
+        classCameraStream: null,
+        classCameraActive: false,
+        classCameraFacing: 'environment',
+        classCameraError: '',
+        classFlash: false,
+        angleSuggestions: ['Front Rows', 'Back Benches', 'Left Wing', 'Center Rows', 'Right Wing', 'Corner Seats'],
+        capturedClassPhotos: [],
+
+        // Attendance Processing & Review State
+        processing: false,
+        processingResult: null,
+        finalizedSession: null,
+        reviewState: { autoPresent: [], needsReview: [], unmatched: [] },
+        reviewFilter: 'review', // 'review' | 'present' | 'absent'
+        selectedReviewPhotoIdx: 0,
+        savingAttendance: false,
+        manualAddSelectedUsn: '',
+        manualAddCustomMode: false,
+        manualAddCustomUsn: '',
+        manualAddCustomName: '',
+
+        // PWA State
+        showInstallPrompt: false,
+        deferredPrompt: null,
+
+        // Dashboard Stats
+        dashboardStats: {
+          avgAttendance: 92.4,
+          lowAttendanceCount: 3
+        },
+
+        initApp() {
+          if (this.darkMode) {
+            document.documentElement.classList.add('dark');
+          }
+          if (this.token) {
+            this.loadClasses();
+            this.loadStudents();
+          }
+
+          // Register PWA Service Worker
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+              .then(reg => console.log('FaceMark PWA registered, scope:', reg.scope))
+              .catch(err => console.log('SW registration error:', err));
+          }
+
+          // Capture PWA beforeinstallprompt event
+          window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            this.showInstallPrompt = true;
+          });
+
+          window.addEventListener('appinstalled', () => {
+            this.showInstallPrompt = false;
+            this.deferredPrompt = null;
+            this.showToast('FaceMark installed as Progressive Web App!');
+          });
+
+          this.$nextTick(() => lucide.createIcons());
+          setTimeout(() => lucide.createIcons(), 200);
+        },
+
+        async installPwa() {
+          if (!this.deferredPrompt) {
+            return this.showToast('To install, tap Share (iOS Safari) or browser menu ⋮ and choose "Install App" / "Add to Home Screen".');
+          }
+          this.deferredPrompt.prompt();
+          const { outcome } = await this.deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            this.showInstallPrompt = false;
+          }
+          this.deferredPrompt = null;
+        },
+
+        toggleDarkMode() {
+          this.darkMode = !this.darkMode;
+          localStorage.setItem('frcas_dark', this.darkMode);
+          if (this.darkMode) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        showToast(msg, type = 'success') {
+          this.toast = { message: msg, type };
+          this.$nextTick(() => lucide.createIcons());
+          setTimeout(() => { this.toast.message = ''; }, 4000);
+        },
+
+        setTab(newTab) {
+          this.tab = newTab;
+          if (newTab !== 'capture' && this.classCameraStream) {
+            this.classCameraStream.getTracks().forEach(t => t.stop());
+            this.classCameraActive = false;
+          }
+          if (newTab === 'students') this.loadStudents();
+          if (newTab === 'classes') this.loadClasses();
+          if (newTab === 'reports' && this.historyClassId) this.loadHistory();
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        quickDemoLogin() {
+          this.loginForm.email = 'teacher@college.edu';
+          this.loginForm.password = 'admin123';
+        },
+
+        async login() {
+          this.loading = true;
+          this.authError = '';
+          try {
+            const res = await fetch('/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.loginForm)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Login failed');
+
+            this.token = data.access_token;
+            this.teacherName = data.teacher_name;
+            this.teacherEmail = data.teacher_email;
+            localStorage.setItem('frcas_token', this.token);
+            localStorage.setItem('frcas_teacher_name', this.teacherName);
+            localStorage.setItem('frcas_teacher_email', this.teacherEmail);
+
+            this.showToast(`Welcome, ${this.teacherName}!`);
+            this.loadClasses();
+            this.loadStudents();
+          } catch (e) {
+            this.authError = e.message;
+          } finally {
+            this.loading = false;
+            this.$nextTick(() => lucide.createIcons());
+          }
+        },
+
+        logout() {
+          if (this.classCameraStream) {
+            this.classCameraStream.getTracks().forEach(t => t.stop());
+            this.classCameraActive = false;
+          }
+          this.token = '';
+          this.teacherName = '';
+          this.teacherEmail = '';
+          localStorage.clear();
+          this.processingResult = null;
+          this.finalizedSession = null;
+        },
+
+        async loadClasses() {
+          try {
+            const res = await fetch('/classes', {
+              headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            if (res.ok) {
+              this.classes = await res.json();
+              if (this.classes.length > 0 && !this.selectedClassId) {
+                this.selectedClassId = this.classes[0].id;
+                this.historyClassId = this.classes[0].id;
+                this.loadHistory();
+              }
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        },
+
+        getSelectedClassName() {
+          const c = this.classes.find(item => item.id == this.selectedClassId);
+          return c ? `${c.subject} (${c.section})` : 'Class Section';
+        },
+
+        onClassChange() {
+          this.historyClassId = this.selectedClassId;
+          this.loadHistory();
+        },
+
+        async createClass() {
+          try {
+            const res = await fetch('/classes', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.token}`
+              },
+              body: JSON.stringify(this.classForm)
+            });
+            if (res.ok) {
+              this.showToast('Class created successfully');
+              this.classForm = { subject: '', section: '' };
+              this.loadClasses();
+            }
+          } catch (e) {
+            this.showToast('Failed to create class', 'error');
+          }
+        },
+
+        async loadStudents() {
+          try {
+            let url = '/students';
+            if (this.searchSection) url += `?section=${encodeURIComponent(this.searchSection)}`;
+            const res = await fetch(url, {
+              headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            if (res.ok) this.students = await res.json();
+          } catch (e) {
+            console.error(e);
+          }
+        },
+
+        async deleteStudent(usn) {
+          if (!confirm(`Delete student ${usn} and permanent biometric data?`)) return;
+          try {
+            const res = await fetch(`/students/${usn}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            if (res.ok) {
+              this.showToast(`Student ${usn} deleted`);
+              this.loadStudents();
+            }
+          } catch (e) {
+            this.showToast('Failed to delete student', 'error');
+          }
+        },
+
+        playSnapSound() {
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.08);
+          } catch (e) {}
+        },
+
+        async startClassCamera() {
+          this.classCameraError = '';
+          if (this.classCameraStream) {
+            this.classCameraStream.getTracks().forEach(t => t.stop());
+          }
+          try {
+            const constraints = {
+              video: {
+                facingMode: { ideal: this.classCameraFacing },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 }
+              },
+              audio: false
+            };
+            this.classCameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            this.$refs.classVideo.srcObject = this.classCameraStream;
+            this.classCameraActive = true;
+          } catch (err) {
+            console.error('Classroom camera error:', err);
+            this.classCameraError = 'Could not access camera: ' + err.message;
+            this.classCameraActive = false;
+          }
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        toggleCameraFacing() {
+          this.classCameraFacing = this.classCameraFacing === 'environment' ? 'user' : 'environment';
+          this.startClassCamera();
+        },
+
+        snapClassroomPhoto(customLabel = null) {
+          const video = this.$refs.classVideo;
+          const canvas = this.$refs.classCanvas;
+          if (!video || !canvas) return;
+
+          canvas.width = video.videoWidth || 1920;
+          canvas.height = video.videoHeight || 1080;
+          const ctx = canvas.getContext('2d');
+          
+          if (this.classCameraFacing === 'user') {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+          }
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          this.classFlash = true;
+          this.playSnapSound();
+          setTimeout(() => { this.classFlash = false; }, 150);
+
+          canvas.toBlob((blob) => {
+            const previewUrl = URL.createObjectURL(blob);
+            const count = this.capturedClassPhotos.length + 1;
+            const label = customLabel || `Angle #${count}`;
+            
+            this.capturedClassPhotos.push({
+              id: Date.now() + Math.random(),
+              blob: blob,
+              previewUrl: previewUrl,
+              filename: `classroom_snap_${count}.jpg`,
+              label: label
+            });
+
+            this.showToast(`Snapped ${label}! (${count} total)`);
+            this.$nextTick(() => lucide.createIcons());
+          }, 'image/jpeg', 0.95);
+        },
+
+        removeCapturedPhoto(index) {
+          this.capturedClassPhotos.splice(index, 1);
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        clearAllCapturedPhotos() {
+          if (this.capturedClassPhotos.length === 0) return;
+          if (confirm('Clear all snapped classroom photos?')) {
+            this.capturedClassPhotos = [];
+            this.$nextTick(() => lucide.createIcons());
+          }
+        },
+
+        async processAttendance() {
+          if (!this.selectedClassId) return this.showToast('Please select a class first', 'error');
+
+          const hasCameraFrames = this.capturedClassPhotos.length > 0;
+          if (!hasCameraFrames) {
+            return this.showToast('Please snap at least 1 classroom angle first', 'error');
+          }
+
+          this.processing = true;
+          try {
+            const fd = new FormData();
+            fd.append('class_id', this.selectedClassId);
+
+            this.capturedClassPhotos.forEach((photo) => {
+              fd.append('photos', photo.blob, photo.filename);
+            });
+
+            const res = await fetch('/attendance/process', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${this.token}` },
+              body: fd
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Processing failed');
+
+            this.processingResult = data;
+            this.reviewState = {
+              autoPresent: [...data.auto_present],
+              needsReview: [...data.needs_review],
+              unmatched: [...data.unmatched_students]
+            };
+            this.reviewFilter = data.needs_review.length > 0 ? 'review' : 'present';
+            this.selectedReviewPhotoIdx = 0;
+            this.showToast(`Detected ${data.total_faces_detected} faces across all ${this.capturedClassPhotos.length} photos!`);
+
+            // Stop camera stream while reviewing
+            if (this.classCameraStream) {
+              this.classCameraStream.getTracks().forEach(t => t.stop());
+              this.classCameraActive = false;
+            }
+
+            this.$nextTick(() => {
+              lucide.createIcons();
+              this.renderReviewCanvas();
+            });
+          } catch (e) {
+            this.showToast(e.message, 'error');
+          } finally {
+            this.processing = false;
+            this.$nextTick(() => lucide.createIcons());
+          }
+        },
+
+        renderReviewCanvas() {
+          const canvas = this.$refs.reviewCanvas;
+          if (!canvas || !this.capturedClassPhotos[this.selectedReviewPhotoIdx]) return;
+
+          const photoObj = this.capturedClassPhotos[this.selectedReviewPhotoIdx];
+          const img = new Image();
+          img.src = photoObj.previewUrl;
+          img.onload = () => {
+            canvas.width = img.naturalWidth || 1920;
+            canvas.height = img.naturalHeight || 1080;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            // Overlay Bounding Boxes for this photo
+            const currentIdx = this.selectedReviewPhotoIdx;
+
+            // Draw Auto-Present (Green)
+            (this.reviewState.autoPresent || []).forEach(m => {
+              if (m.photo_index === currentIdx) {
+                const [x1, y1, x2, y2] = m.bbox;
+                ctx.strokeStyle = '#10B981';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                ctx.fillStyle = '#10B981';
+                ctx.fillRect(x1, Math.max(0, y1 - 24), ctx.measureText(m.usn).width + 16, 24);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = 'bold 14px "JetBrains Mono", monospace';
+                ctx.fillText(m.usn, x1 + 6, Math.max(16, y1 - 7));
+              }
+            });
+
+            // Draw Needs-Review (Amber)
+            (this.reviewState.needsReview || []).forEach(m => {
+              if (m.photo_index === currentIdx) {
+                const [x1, y1, x2, y2] = m.bbox;
+                ctx.strokeStyle = '#F59E0B';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                ctx.fillStyle = '#F59E0B';
+                ctx.fillRect(x1, Math.max(0, y1 - 24), ctx.measureText(m.usn).width + 16, 24);
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 14px "JetBrains Mono", monospace';
+                ctx.fillText(m.usn, x1 + 6, Math.max(16, y1 - 7));
+              }
+            });
+
+            // Draw Unknown (Sky Blue)
+            (this.processingResult.unknown_faces || []).forEach(m => {
+              if (m.photo_index === currentIdx) {
+                const [x1, y1, x2, y2] = m.bbox;
+                ctx.strokeStyle = '#0284C7';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([6, 6]);
+                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                ctx.setLineDash([]);
+              }
+            });
+          };
+        },
+
+        promoteReviewToPresent(idx) {
+          const item = this.reviewState.needsReview.splice(idx, 1)[0];
+          this.reviewState.autoPresent.push({ ...item, method: 'REVIEW_CONFIRMED' });
+          this.showToast(`Confirmed ${item.name} as PRESENT!`);
+          this.renderReviewCanvas();
+        },
+
+        rejectReviewToAbsent(idx) {
+          const item = this.reviewState.needsReview.splice(idx, 1)[0];
+          this.reviewState.unmatched.push({ usn: item.usn, name: item.name });
+          this.showToast(`Marked ${item.name} as ABSENT`);
+          this.renderReviewCanvas();
+        },
+
+        demotePresentToAbsent(idx) {
+          const item = this.reviewState.autoPresent.splice(idx, 1)[0];
+          this.reviewState.unmatched.push({ usn: item.usn, name: item.name });
+          this.showToast(`Marked ${item.name} as ABSENT`);
+          this.renderReviewCanvas();
+        },
+
+        markAbsentAsPresent(idx) {
+          const item = this.reviewState.unmatched.splice(idx, 1)[0];
+          this.reviewState.autoPresent.push({
+            usn: item.usn,
+            name: item.name,
+            confidence: 1.0,
+            method: 'MANUAL_OVERRIDE'
+          });
+          this.showToast(`Added ${item.name} (${item.usn}) to Attendance Sheet as PRESENT!`);
+          this.renderReviewCanvas();
+        },
+
+        getAvailableForManualAdd() {
+          const presentUsns = new Set((this.reviewState.autoPresent || []).map(p => p.usn));
+          const list = [];
+          const seen = new Set();
+
+          // 1. Unmatched absent students
+          (this.reviewState.unmatched || []).forEach(u => {
+            if (!presentUsns.has(u.usn) && !seen.has(u.usn)) {
+              list.push({ usn: u.usn, name: u.name });
+              seen.add(u.usn);
+            }
+          });
+
+          // 2. All section students
+          (this.students || []).forEach(s => {
+            if (!presentUsns.has(s.usn) && !seen.has(s.usn)) {
+              list.push({ usn: s.usn, name: s.name });
+              seen.add(s.usn);
+            }
+          });
+
+          return list;
+        },
+
+        manualAddStudentToPresent() {
+          if (!this.manualAddSelectedUsn) return;
+          const usn = this.manualAddSelectedUsn;
+
+          let name = usn;
+          const inUnmatchedIdx = (this.reviewState.unmatched || []).findIndex(u => u.usn === usn);
+          if (inUnmatchedIdx !== -1) {
+            name = this.reviewState.unmatched[inUnmatchedIdx].name;
+            this.reviewState.unmatched.splice(inUnmatchedIdx, 1);
+          } else {
+            const st = this.students.find(s => s.usn === usn);
+            if (st) name = st.name;
+          }
+
+          const inReviewIdx = (this.reviewState.needsReview || []).findIndex(r => r.usn === usn);
+          if (inReviewIdx !== -1) {
+            name = this.reviewState.needsReview[inReviewIdx].name;
+            this.reviewState.needsReview.splice(inReviewIdx, 1);
+          }
+
+          this.reviewState.autoPresent.push({
+            usn: usn,
+            name: name,
+            confidence: 1.0,
+            method: 'MANUAL_OVERRIDE'
+          });
+
+          this.manualAddSelectedUsn = '';
+          this.showToast(`Added ${name} (${usn}) to Attendance Sheet as PRESENT!`);
+          this.renderReviewCanvas();
+        },
+
+        manualAddCustomStudentToPresent() {
+          const usn = (this.manualAddCustomUsn || '').trim().toUpperCase();
+          const name = (this.manualAddCustomName || '').trim() || usn;
+          if (!usn) return this.showToast('Please enter student USN', 'error');
+
+          // Check if already in autoPresent
+          if ((this.reviewState.autoPresent || []).some(p => p.usn === usn)) {
+            return this.showToast(`Student ${usn} is already marked Present!`, 'error');
+          }
+
+          // Remove from unmatched if exists
+          const inUnmatchedIdx = (this.reviewState.unmatched || []).findIndex(u => u.usn === usn);
+          if (inUnmatchedIdx !== -1) {
+            this.reviewState.unmatched.splice(inUnmatchedIdx, 1);
+          }
+
+          // Remove from review if exists
+          const inReviewIdx = (this.reviewState.needsReview || []).findIndex(r => r.usn === usn);
+          if (inReviewIdx !== -1) {
+            this.reviewState.needsReview.splice(inReviewIdx, 1);
+          }
+
+          this.reviewState.autoPresent.push({
+            usn: usn,
+            name: name,
+            confidence: 1.0,
+            method: 'MANUAL_OVERRIDE'
+          });
+
+          this.manualAddCustomUsn = '';
+          this.manualAddCustomName = '';
+          this.showToast(`Added ${name} (${usn}) to Attendance Sheet as PRESENT!`);
+          this.renderReviewCanvas();
+        },
+
+        async downloadReport(sessionId, type = 'excel') {
+          if (!sessionId) {
+            return this.showToast('Invalid session ID for download', 'error');
+          }
+          try {
+            this.showToast(`Downloading ${type.toUpperCase()} report...`);
+            const endpoint = `/reports/session/${sessionId}/${type}?token=${encodeURIComponent(this.token)}`;
+            const res = await fetch(endpoint, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${this.token}`
+              }
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.detail || 'Download failed');
+            }
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const ext = type === 'excel' ? 'xlsx' : 'csv';
+            a.download = `Attendance_Session_${sessionId}.${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => window.URL.revokeObjectURL(url), 2000);
+            this.showToast(`Exported ${type.toUpperCase()} file successfully!`);
+          } catch (e) {
+            this.showToast('Download error: ' + e.message, 'error');
+          }
+        },
+
+        async confirmAttendance() {
+          this.savingAttendance = true;
+          try {
+            const records = [
+              ...this.reviewState.autoPresent.map(p => ({
+                usn: p.usn,
+                name: p.name,
+                status: 'PRESENT',
+                confidence: p.confidence || 1.0,
+                method: p.method || 'AUTO'
+              })),
+              ...this.reviewState.unmatched.map(u => ({
+                usn: u.usn,
+                name: u.name,
+                status: 'ABSENT',
+                confidence: 0.0,
+                method: 'AUTO'
+              }))
+            ];
+
+            const res = await fetch('/attendance/confirm', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.token}`
+              },
+              body: JSON.stringify({
+                class_id: parseInt(this.selectedClassId),
+                records: records
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Confirmation failed');
+
+            this.finalizedSession = data;
+            this.showToast('Attendance recorded and committed to database!');
+            this.loadHistory();
+          } catch (e) {
+            this.showToast(e.message, 'error');
+          } finally {
+            this.savingAttendance = false;
+            this.$nextTick(() => lucide.createIcons());
+          }
+        },
+
+        startNewAttendanceSession() {
+          this.processingResult = null;
+          this.finalizedSession = null;
+          this.capturedClassPhotos = [];
+          this.startClassCamera();
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        async loadHistory() {
+          const classIdToUse = this.historyClassId || this.selectedClassId;
+          if (!classIdToUse) return;
+          try {
+            const res = await fetch(`/attendance/history/${classIdToUse}`, {
+              headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            if (res.ok) {
+              this.history = await res.json();
+              if (this.history.length > 0) {
+                const totalPct = this.history.reduce((acc, h) => acc + h.attendance_rate, 0);
+                this.dashboardStats.avgAttendance = Math.round(totalPct / this.history.length);
+                this.dashboardStats.lowAttendanceCount = this.history.filter(h => h.attendance_rate < 75).length;
+              }
+              this.$nextTick(() => lucide.createIcons());
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
+      };
+    }
+  </script>
+</body>
+</html>

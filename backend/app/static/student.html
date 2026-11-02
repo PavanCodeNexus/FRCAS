@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FaceMark - Student Face Scanner</title>
+
+  <!-- Progressive Web App (PWA) Manifest & Icons -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4F46E5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FaceMark Scanner">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .scan-ring {
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.4), 0 0 25px rgba(99, 102, 241, 0.5);
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.4), 0 0 20px rgba(99, 102, 241, 0.4); }
+      50% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.7), 0 0 35px rgba(99, 102, 241, 0.8); }
+    }
+    .sweep-line {
+      animation: sweep 2.5s infinite linear;
+    }
+    @keyframes sweep {
+      0% { top: 10%; opacity: 0; }
+      20% { opacity: 0.8; }
+      80% { opacity: 0.8; }
+      100% { top: 90%; opacity: 0; }
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen antialiased flex flex-col justify-between" x-data="studentScanner()" x-init="init()" x-cloak>
+
+  <!-- Top Navbar -->
+  <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-600/30">
+          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+            <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+            <circle cx="12" cy="12" r="3.5"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="font-bold text-base text-white tracking-wide">Student Face Scanner</h1>
+          <p class="text-[11px] text-indigo-400 font-medium">Classroom Attendance Enrollment</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2.5">
+        <button x-show="showInstallPrompt" @click="installPwa()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition flex items-center space-x-1.5 shadow-md shadow-indigo-600/30">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span>Install App</span>
+        </button>
+        <a href="/professor" class="px-3.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition flex items-center space-x-1.5">
+          <i data-lucide="user-cog" class="w-4 h-4"></i>
+          <span>Professor Portal</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Scanner Workflow -->
+  <main class="max-w-4xl mx-auto px-4 py-8 flex-1 w-full flex flex-col items-center">
+    
+    <!-- Step Progress Indicator -->
+    <div class="w-full max-w-xl mb-6">
+      <div class="flex items-center justify-between text-xs font-bold text-slate-400 mb-2">
+        <span :class="currentStep >= 1 ? 'text-indigo-400 font-bold' : ''">1. Student Details</span>
+        <span :class="currentStep >= 2 ? 'text-indigo-400 font-bold' : ''">2. Live 3-Angle Face Scan</span>
+        <span :class="currentStep >= 3 ? 'text-emerald-400 font-bold' : ''">3. Enrolled</span>
+      </div>
+      <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+        <div class="bg-indigo-500 h-full transition-all duration-300" :style="`width: ${(currentStep / 3) * 100}%`"></div>
+      </div>
+    </div>
+
+    <!-- STAGE 1: Student Information Form -->
+    <div x-show="currentStep === 1" class="w-full max-w-md bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+      <div class="text-center mb-6">
+        <div class="inline-flex p-3 rounded-2xl bg-indigo-500/10 text-indigo-400 mb-3 border border-indigo-500/20">
+          <svg class="w-7 h-7 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/></svg>
+        </div>
+        <h2 class="text-xl font-bold text-white">Student Registration</h2>
+        <p class="text-xs text-slate-400 mt-1">Enter your details before starting the live camera scanner</p>
+      </div>
+
+      <form @submit.prevent="proceedToScanner()" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">University Seat Number (USN)</label>
+          <input type="text" x-model="form.usn" required placeholder="e.g. 1MS21CS001" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-sm uppercase focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition font-mono">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Full Name</label>
+          <input type="text" x-model="form.name" required placeholder="e.g. Rahul Sharma" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Class Section</label>
+          <input type="text" x-model="form.section" required placeholder="e.g. 6A" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-sm uppercase focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+        </div>
+
+        <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-start space-x-3 pt-3">
+          <input type="checkbox" id="consent" x-model="form.consent" required class="mt-0.5 rounded bg-slate-800 border-slate-700 text-indigo-500 focus:ring-indigo-500">
+          <label for="consent" class="text-xs text-slate-300 leading-relaxed">
+            I consent to store my facial biometric vector under India's <strong>DPDP Act 2023</strong> strictly for attendance recognition.
+          </label>
+        </div>
+
+        <button type="submit" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition flex items-center justify-center space-x-2">
+          <span>Start Camera Scanner</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </form>
+    </div>
+
+    <!-- STAGE 2: Interactive 3-Angle Face Scanner -->
+    <div x-show="currentStep === 2" class="w-full max-w-xl flex flex-col items-center">
+      
+      <!-- Angle Guidance Banner -->
+      <div class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 mb-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg" :class="getAngleBadgeClass()">
+            <span x-text="scanIndex + 1"></span>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm text-white" x-text="angles[scanIndex].title"></h3>
+            <p class="text-xs text-slate-400" x-text="angles[scanIndex].instruction"></p>
+          </div>
+        </div>
+        <div class="text-right">
+          <span class="text-xs font-mono font-bold text-indigo-400" x-text="`${scannedCount}/3 Angles`"></span>
+        </div>
+      </div>
+
+      <!-- Live Video Viewfinder -->
+      <div class="relative w-full aspect-[4/3] max-w-lg bg-black rounded-3xl overflow-hidden border-2 border-slate-700 shadow-2xl flex items-center justify-center">
+        
+        <!-- Video Stream -->
+        <video x-ref="videoElement" autoplay playsinline muted class="w-full h-full object-cover transform -scale-x-100"></video>
+        
+        <!-- Hidden Canvas for frame snapshots -->
+        <canvas x-ref="captureCanvas" class="hidden"></canvas>
+
+        <!-- Face Guide Oval Overlay -->
+        <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
+          <div class="w-56 h-72 rounded-[50%] border-2 border-dashed border-indigo-400/80 scan-ring relative flex items-center justify-center">
+            <!-- Sweeping scan line -->
+            <div class="absolute w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent sweep-line"></div>
+            <!-- Center target crosshairs -->
+            <div class="w-4 h-4 border-t-2 border-l-2 border-indigo-400 absolute top-4 left-4"></div>
+            <div class="w-4 h-4 border-t-2 border-r-2 border-indigo-400 absolute top-4 right-4"></div>
+            <div class="w-4 h-4 border-b-2 border-l-2 border-indigo-400 absolute bottom-4 left-4"></div>
+            <div class="w-4 h-4 border-b-2 border-r-2 border-indigo-400 absolute bottom-4 right-4"></div>
+          </div>
+        </div>
+
+        <!-- Camera Status / Error -->
+        <div x-show="cameraError" class="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-6 text-center">
+          <i data-lucide="camera-off" class="w-12 h-12 text-rose-500 mb-3"></i>
+          <p class="text-sm font-bold text-white mb-1">Camera Permission Denied</p>
+          <p class="text-xs text-slate-400 mb-4" x-text="cameraError"></p>
+          <button @click="startCamera()" class="px-4 py-2 rounded-xl bg-indigo-600 text-xs font-semibold text-white">Retry Camera</button>
+        </div>
+
+        <!-- Flash Effect -->
+        <div x-show="flash" class="absolute inset-0 bg-white transition-opacity duration-200"></div>
+      </div>
+
+      <!-- Capture Button Controls -->
+      <div class="mt-6 flex flex-col items-center space-y-4 w-full">
+        <button @click="captureCurrentAngle()" :disabled="submitting" class="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-sm shadow-xl shadow-indigo-600/40 transition flex items-center space-x-2.5">
+          <i data-lucide="camera" class="w-5 h-5"></i>
+          <span x-text="angles[scanIndex].buttonText"></span>
+        </button>
+
+        <!-- Angle Slots Preview Tray -->
+        <div class="grid grid-cols-3 gap-3 w-full max-w-md pt-2">
+          <template x-for="(angle, idx) in angles" :key="idx">
+            <div class="bg-slate-950 border rounded-2xl p-2.5 flex flex-col items-center relative transition" :class="capturedPhotos[idx] ? 'border-emerald-500/80 bg-emerald-950/20' : (scanIndex === idx ? 'border-indigo-500' : 'border-slate-800')">
+              <template x-if="capturedPhotos[idx]">
+                <div class="relative w-full aspect-square rounded-xl overflow-hidden mb-1.5 border border-slate-700">
+                  <img :src="capturedPhotos[idx].previewUrl" class="w-full h-full object-cover">
+                  <div class="absolute top-1 right-1 bg-emerald-500 text-white rounded-full p-0.5">
+                    <i data-lucide="check" class="w-3 h-3"></i>
+                  </div>
+                </div>
+              </template>
+              <template x-if="!capturedPhotos[idx]">
+                <div class="w-full aspect-square rounded-xl bg-slate-900 border border-slate-800 mb-1.5 flex items-center justify-center text-slate-600">
+                  <i :data-lucide="angle.icon" class="w-6 h-6"></i>
+                </div>
+              </template>
+              <span class="text-[11px] font-bold text-slate-300" x-text="angle.short"></span>
+              <template x-if="capturedPhotos[idx]">
+                <button @click="retakeAngle(idx)" class="text-[10px] text-indigo-400 hover:text-indigo-300 mt-0.5 font-medium">Retake</button>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Submit All 3 Angles -->
+        <div x-show="scannedCount === 3" class="w-full max-w-md pt-2">
+          <button @click="submitScan()" :disabled="submitting" class="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-xl shadow-emerald-600/30 transition flex items-center justify-center space-x-2">
+            <i data-lucide="check-circle" class="w-5 h-5" x-show="!submitting"></i>
+            <span x-show="!submitting">Submit & Finalize Enrollment</span>
+            <span x-show="submitting">Validating Faces with ArcFace...</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- STAGE 3: Success Confirmation Screen -->
+    <div x-show="currentStep === 3" class="w-full max-w-md bg-slate-950 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl">
+      <div class="w-16 h-16 rounded-3xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+        <svg class="w-10 h-10 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <h2 class="text-2xl font-bold text-white mb-1">Face Enrolled!</h2>
+      <p class="text-xs text-slate-400 mb-6">Your 3 face angles were verified and converted to ArcFace biometric vectors.</p>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-left space-y-2 mb-6 font-mono text-xs">
+        <div class="flex justify-between"><span class="text-slate-500">USN:</span><span class="font-bold text-white" x-text="form.usn"></span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Name:</span><span class="font-bold text-white" x-text="form.name"></span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Section:</span><span class="font-bold text-indigo-400" x-text="form.section"></span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Enrolled Angles:</span><span class="font-bold text-emerald-400">3 of 3 (0°, -20°, +20°)</span></div>
+      </div>
+
+      <button @click="resetForm()" class="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition">
+        Enroll Another Student
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
+    FRCAS &bull; Compliant with India Digital Personal Data Protection Act 2023
+  </footer>
+
+  <!-- Script Logic -->
+  <script>
+    function studentScanner() {
+      return {
+        currentStep: 1,
+        cameraStream: null,
+        cameraError: '',
+        flash: false,
+        submitting: false,
+        showInstallPrompt: false,
+        deferredPrompt: null,
+
+        form: {
+          usn: '',
+          name: '',
+          section: '',
+          consent: true
+        },
+
+        scanIndex: 0,
+        angles: [
+          {
+            title: 'Angle 1: Look Straight (Center)',
+            instruction: 'Align your face directly inside the oval guide and look at the camera.',
+            buttonText: 'Capture Center Pose',
+            short: 'Center (0°)',
+            icon: 'user'
+          },
+          {
+            title: 'Angle 2: Turn Head Slightly Left',
+            instruction: 'Turn your head about 20° to your left side and hold steady.',
+            buttonText: 'Capture Left Pose',
+            short: 'Left (~20°)',
+            icon: 'arrow-left'
+          },
+          {
+            title: 'Angle 3: Turn Head Slightly Right',
+            instruction: 'Turn your head about 20° to your right side and hold steady.',
+            buttonText: 'Capture Right Pose',
+            short: 'Right (~20°)',
+            icon: 'arrow-right'
+          }
+        ],
+
+        capturedPhotos: [null, null, null],
+
+        get scannedCount() {
+          return this.capturedPhotos.filter(p => p !== null).length;
+        },
+
+        init() {
+          // Register PWA Service Worker
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+              .catch(err => console.log('SW error:', err));
+          }
+
+          window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            this.showInstallPrompt = true;
+          });
+
+          window.addEventListener('appinstalled', () => {
+            this.showInstallPrompt = false;
+            this.deferredPrompt = null;
+          });
+
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        async installPwa() {
+          if (!this.deferredPrompt) {
+            return alert('To install, tap Share (iOS) or browser settings ⋮ and select "Add to Home Screen".');
+          }
+          this.deferredPrompt.prompt();
+          const { outcome } = await this.deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            this.showInstallPrompt = false;
+          }
+          this.deferredPrompt = null;
+        },
+
+        getAngleBadgeClass() {
+          if (this.scanIndex === 0) return 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30';
+          if (this.scanIndex === 1) return 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
+          return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
+        },
+
+        async proceedToScanner() {
+          if (!this.form.usn || !this.form.name || !this.form.section || !this.form.consent) return;
+          this.currentStep = 2;
+          this.$nextTick(() => {
+            lucide.createIcons();
+            this.startCamera();
+          });
+        },
+
+        async startCamera() {
+          this.cameraError = '';
+          try {
+            const constraints = {
+              video: {
+                facingMode: 'user',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+              },
+              audio: false
+            };
+            this.cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            this.$refs.videoElement.srcObject = this.cameraStream;
+          } catch (err) {
+            console.error('Camera access failed:', err);
+            this.cameraError = 'Could not access webcam. Please allow camera permissions in your browser.';
+            this.$nextTick(() => lucide.createIcons());
+          }
+        },
+
+        playSnapSound() {
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.08);
+          } catch (e) {}
+        },
+
+        captureCurrentAngle() {
+          const video = this.$refs.videoElement;
+          const canvas = this.$refs.captureCanvas;
+          if (!video || !canvas) return;
+
+          canvas.width = video.videoWidth || 1280;
+          canvas.height = video.videoHeight || 720;
+          const ctx = canvas.getContext('2d');
+
+          // Mirror frame to match selfie view
+          ctx.translate(canvas.width, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          // Flash UI & Sound
+          this.flash = true;
+          this.playSnapSound();
+          setTimeout(() => { this.flash = false; }, 150);
+
+          canvas.toBlob((blob) => {
+            const previewUrl = URL.createObjectURL(blob);
+            this.capturedPhotos[this.scanIndex] = {
+              blob: blob,
+              previewUrl: previewUrl,
+              filename: `${this.form.usn}_pose_${this.scanIndex + 1}.jpg`
+            };
+
+            // Advance to next uncaptured angle
+            const nextEmpty = this.capturedPhotos.findIndex(p => p === null);
+            if (nextEmpty !== -1) {
+              this.scanIndex = nextEmpty;
+            }
+            this.$nextTick(() => lucide.createIcons());
+          }, 'image/jpeg', 0.95);
+        },
+
+        retakeAngle(idx) {
+          this.capturedPhotos[idx] = null;
+          this.scanIndex = idx;
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        async submitScan() {
+          if (this.scannedCount < 3) return alert('Please complete all 3 face angles before submitting.');
+          this.submitting = true;
+
+          try {
+            const fd = new FormData();
+            fd.append('usn', this.form.usn);
+            fd.append('name', this.form.name);
+            fd.append('section', this.form.section);
+            fd.append('consent_given', this.form.consent);
+
+            for (let i = 0; i < 3; i++) {
+              fd.append('photos', this.capturedPhotos[i].blob, this.capturedPhotos[i].filename);
+            }
+
+            const res = await fetch('/students/self-register', {
+              method: 'POST',
+              body: fd
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Enrollment failed');
+
+            // Stop camera stream
+            if (this.cameraStream) {
+              this.cameraStream.getTracks().forEach(t => t.stop());
+            }
+
+            this.currentStep = 3;
+          } catch (e) {
+            alert('Scan verification failed: ' + e.message);
+          } finally {
+            this.submitting = false;
+            this.$nextTick(() => lucide.createIcons());
+          }
+        },
+
+        resetForm() {
+          this.form = { usn: '', name: '', section: '', consent: true };
+          this.capturedPhotos = [null, null, null];
+          this.scanIndex = 0;
+          this.currentStep = 1;
+          this.$nextTick(() => lucide.createIcons());
+        }
+      };
+    }
+  </script>
+</body>
+</html>

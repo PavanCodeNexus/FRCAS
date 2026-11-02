@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+venv/
+.venv/
+
+# AI Model Weights & Binaries (>100MB, auto-downloaded on first run)
+models/
+*.onnx
+*.zip
+*.tar.gz
+
+# Data & Biometrics (Privacy & DPDP 2023 Compliance)
+data/registered_faces/
+data/class_photos/
+data/exports/
+*.db
+*.sqlite3
+
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,49 @@
+{
+  "name": "FaceMark FRCAS - AI Attendance",
+  "short_name": "FaceMark",
+  "description": "Enterprise-grade Classroom Face Recognition Attendance System with Multi-Angle Scanning",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B0F19",
+  "theme_color": "#4F46E5",
+  "categories": ["education", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Live Attendance Scanner",
+      "short_name": "Live Scan",
+      "description": "Start live classroom camera attendance scanning",
+      "url": "/professor",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Student Face Scanner",
+      "short_name": "Student Scanner",
+      "description": "Register 3-angle face biometric profile",
+      "url": "/student",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
