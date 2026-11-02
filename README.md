@@ -100,32 +100,58 @@ Open your browser at:
 
 ## Repository Structure
 
-```
+```text
 FRCAS/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              # FastAPI app & PWA static mounts
-│   │   ├── config.py            # Paths, thresholds & model configurations
-│   │   ├── database.py          # SQLAlchemy SQLite connection
+│   │   ├── main.py              # FastAPI app, static mounts & /health keep-alive
+│   │   ├── config.py            # Paths, thresholds, JWT & model settings
+│   │   ├── database.py          # SQLAlchemy SQLite connection & sessionmaker
 │   │   ├── models.py            # Teacher, Class, Student, FaceEmbedding, Session, Attendance
-│   │   ├── schemas.py           # Pydantic models & validation
-│   │   ├── routes/              # auth, classes, students, attendance, reports
-│   │   ├── services/            # detector (RetinaFace), embedder (ArcFace), matcher, report_service
-│   │   ├── static/              # index.html, student.html, sw.js, manifest.json, icons/
-│   │   └── utils/               # image_utils, security (bcrypt & JWT)
-├── docs/                        # Complete technical specifications & architectural docs
-│   ├── ARCHITECTURE.md
-│   ├── API.md
-│   ├── PRD.md
-│   ├── STRUCTURE.md
-│   ├── UI_DESIGN.md
-│   └── WORKFLOWS.md
+│   │   ├── schemas.py           # Pydantic request/response validation schemas
+│   │   ├── routes/              # Modular API endpoints
+│   │   │   ├── attendance.py    # Multi-sector upload, matching & finalization
+│   │   │   ├── auth.py          # Teacher login & JWT token issuing
+│   │   │   ├── classes.py       # Course & section management
+│   │   │   ├── reports.py       # Multi-sheet Excel & CSV exports
+│   │   │   └── students.py      # Student self-enrollment & face registration
+│   │   ├── services/            # Core AI & business logic
+│   │   │   ├── detector.py      # RetinaFace face detection (InsightFace)
+│   │   │   ├── embedder.py      # ArcFace 512-D feature vector extraction
+│   │   │   ├── matcher.py       # Cosine similarity & dual-threshold bipartite assignment
+│   │   │   └── report_service.py# OpenPyXL multi-sheet Excel generator (<75% shortage alert)
+│   │   ├── static/              # Integrated Web UI & PWA Assets
+│   │   │   ├── index.html       # Professor Portal (Classroom Scanner & Review Queue)
+│   │   │   ├── student.html     # Student Portal (3-Angle Guided Camera Registration)
+│   │   │   ├── sw.js            # PWA Service Worker for offline asset caching
+│   │   │   ├── manifest.json    # PWA Web App Manifest
+│   │   │   └── icons/           # App launcher icons (192x192, 512x512, apple-touch)
+│   │   └── utils/
+│   │       ├── image_utils.py   # OpenCV format conversion & face cropping
+│   │       └── security.py      # Bcrypt password hashing & PyJWT token handling
+│   └── requirements.txt         # Backend Python dependencies
+├── docs/                        # Complete technical documentation suite
+│   ├── API.md                   # REST API endpoint contracts & schemas
+│   ├── ARCHITECTURE.md          # System architecture, dataflow & ML pipelines
+│   ├── DEPLOYMENT.md            # Production deployment guide (Render, Docker, UptimeRobot)
+│   ├── PRD.md                   # Product Requirements Document & specifications
+│   ├── STRUCTURE.md             # Repository layout & module index
+│   ├── UI_DESIGN.md             # UI/UX design system & token definitions
+│   └── WORKFLOWS.md             # Step-by-step user journeys & edge cases
+├── frontend/                    # Optional React + Vite SPA client
+│   ├── src/                     # React application source code
+│   ├── package.json             # Frontend npm dependencies
+│   └── vite.config.js           # Vite build configuration
 ├── scripts/
+│   ├── download_models.py       # Pre-downloads & caches InsightFace buffalo_sc models
 │   └── phase1_prototype.py      # Standalone headless testing script
-├── .gitignore                   # Excludes large ONNX models, biometric photos, local db
+├── Dockerfile                   # Multi-stage production container image
+├── docker-compose.yml           # Local & VPS container orchestration
+├── render.yaml                  # 1-Click Render.com cloud deployment blueprint
+├── requirements.txt             # Root Python dependencies for cloud build
 ├── LICENSE                      # MIT Open Source License
-├── README.md                    # Main repository overview
-└── requirements.txt             # Python dependencies
+├── README.md                    # Main project overview & documentation
+└── .gitignore                   # Excludes models, biometric photos & local databases
 ```
 
 ---

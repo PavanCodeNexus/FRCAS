@@ -1,75 +1,59 @@
-# Project Structure: Face Recognition Classroom Attendance System
+# Project Structure: Face Recognition Classroom Attendance System (FaceMark FRCAS)
 
 ## 1. Folder Tree
 
-```
-face-attendance/
+```text
+FRCAS/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                 # FastAPI entry point
-│   │   ├── config.py               # thresholds, paths, settings
-│   │   ├── database.py             # DB connection and session
-│   │   ├── models.py               # DB tables (SQLAlchemy)
-│   │   ├── schemas.py              # request/response models (Pydantic)
-│   │   ├── routes/
-│   │   │   ├── auth.py             # login
-│   │   │   ├── students.py         # register, list, delete
-│   │   │   ├── classes.py          # create/list classes
-│   │   │   ├── attendance.py       # process and confirm
-│   │   │   └── reports.py          # export CSV/Excel
-│   │   ├── services/
-│   │   │   ├── detector.py         # find faces
-│   │   │   ├── embedder.py         # face → vector
-│   │   │   ├── matcher.py          # cosine similarity + thresholds
-│   │   │   └── report_service.py   # build CSV/Excel
+│   │   ├── main.py              # FastAPI app, static mounts & /health keep-alive
+│   │   ├── config.py            # Paths, thresholds, JWT & model settings
+│   │   ├── database.py          # SQLAlchemy SQLite connection & sessionmaker
+│   │   ├── models.py            # Teacher, Class, Student, FaceEmbedding, Session, Attendance
+│   │   ├── schemas.py           # Pydantic request/response validation schemas
+│   │   ├── routes/              # Modular API endpoints
+│   │   │   ├── attendance.py    # Multi-sector upload, matching & finalization
+│   │   │   ├── auth.py          # Teacher login & JWT token issuing
+│   │   │   ├── classes.py       # Course & section management
+│   │   │   ├── reports.py       # Multi-sheet Excel & CSV exports
+│   │   │   └── students.py      # Student self-enrollment & face registration
+│   │   ├── services/            # Core AI & business logic
+│   │   │   ├── detector.py      # RetinaFace face detection (InsightFace)
+│   │   │   ├── embedder.py      # ArcFace 512-D feature vector extraction
+│   │   │   ├── matcher.py       # Cosine similarity & dual-threshold bipartite assignment
+│   │   │   └── report_service.py# OpenPyXL multi-sheet Excel generator (<75% shortage alert)
+│   │   ├── static/              # Integrated Web UI & PWA Assets
+│   │   │   ├── index.html       # Professor Portal (Classroom Scanner & Review Queue)
+│   │   │   ├── student.html     # Student Portal (3-Angle Guided Camera Registration)
+│   │   │   ├── sw.js            # PWA Service Worker for offline asset caching
+│   │   │   ├── manifest.json    # PWA Web App Manifest
+│   │   │   └── icons/           # App launcher icons (192x192, 512x512, apple-touch)
 │   │   └── utils/
-│   │       ├── security.py         # password hashing, JWT
-│   │       └── image_utils.py      # resize, orientation fix
-│   ├── tests/
-│   │   ├── test_detector.py
-│   │   ├── test_matcher.py
-│   │   └── test_api.py
-│   ├── requirements.txt
-│   └── .env                        # secrets (never commit)
-│
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── Login.jsx
-│   │   │   ├── RegisterStudent.jsx
-│   │   │   ├── Capture.jsx
-│   │   │   ├── Review.jsx
-│   │   │   └── Reports.jsx
-│   │   ├── components/
-│   │   │   ├── Navbar.jsx
-│   │   │   ├── FaceCard.jsx        # face crop + suggested USN
-│   │   │   └── UploadBox.jsx
-│   │   ├── api/
-│   │   │   └── client.js           # API calls
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   └── package.json
-│
-├── data/
-│   ├── registered_faces/           # student photos (git-ignored)
-│   ├── class_photos/               # test classroom images (git-ignored)
-│   └── exports/                    # generated CSV/Excel
-│
-├── notebooks/
-│   └── accuracy_experiments.ipynb  # threshold tuning
-│
+│   │       ├── image_utils.py   # OpenCV format conversion & face cropping
+│   │       └── security.py      # Bcrypt password hashing & PyJWT token handling
+│   └── requirements.txt         # Backend Python dependencies
+├── docs/                        # Complete technical documentation suite
+│   ├── API.md                   # REST API endpoint contracts & schemas
+│   ├── ARCHITECTURE.md          # System architecture, dataflow & ML pipelines
+│   ├── DEPLOYMENT.md            # Production deployment guide (Render, Docker, UptimeRobot)
+│   ├── PRD.md                   # Product Requirements Document & specifications
+│   ├── STRUCTURE.md             # Repository layout & module index
+│   ├── UI_DESIGN.md             # UI/UX design system & token definitions
+│   └── WORKFLOWS.md             # Step-by-step user journeys & edge cases
+├── frontend/                    # Optional React + Vite SPA client
+│   ├── src/                     # React application source code
+│   ├── package.json             # Frontend npm dependencies
+│   └── vite.config.js           # Vite build configuration
 ├── scripts/
-│   └── phase1_prototype.py         # first working script
-│
-├── docs/
-│   ├── PRD.md
-│   ├── WORKFLOWS.md
-│   ├── ARCHITECTURE.md
-│   └── STRUCTURE.md
-│
-├── .gitignore
-└── README.md
+│   ├── download_models.py       # Pre-downloads & caches InsightFace buffalo_sc models
+│   └── phase1_prototype.py      # Standalone headless testing script
+├── Dockerfile                   # Multi-stage production container image
+├── docker-compose.yml           # Local & VPS container orchestration
+├── render.yaml                  # 1-Click Render.com cloud deployment blueprint
+├── requirements.txt             # Root Python dependencies for cloud build
+├── LICENSE                      # MIT Open Source License
+├── README.md                    # Main project overview & documentation
+└── .gitignore                   # Excludes models, biometric photos & local databases
 ```
 
 ## 2. What Each Part Does
