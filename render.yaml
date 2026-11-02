@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: facemark-attendance
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: INSIGHTFACE_MODEL
+        value: buffalo_sc
+      - key: SECRET_KEY
+        generateValue: true
